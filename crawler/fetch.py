@@ -14,11 +14,19 @@ DELAY_SECONDS = 0.5
 TIMEOUT_SECONDS = 30
 
 
-def fetch_all_products(base_url: str) -> list[dict]:
-    """Page through {base_url}/products.json until an empty page is returned."""
+def fetch_all_products(base_url: str) -> tuple[list[dict], str | None]:
+    """Page through {base_url}/products.json until an empty page is returned.
+
+    Shopify Markets serves each market domain with prices already converted
+    to that market's currency (same product/variant ids as the home store).
+    The currency isn't in the JSON payload itself, but the store sets it on
+    the `cart_currency` cookie on every response, so we read it from there
+    instead of hardcoding a currency per domain.
+    """
     products = []
     session = requests.Session()
     session.headers.update({"User-Agent": USER_AGENT})
+    currency = None
 
     for page in range(1, MAX_PAGES + 1):
         resp = session.get(
@@ -27,6 +35,9 @@ def fetch_all_products(base_url: str) -> list[dict]:
             timeout=TIMEOUT_SECONDS,
         )
         resp.raise_for_status()
+        if currency is None:
+            currency = session.cookies.get("cart_currency")
+
         batch = resp.json().get("products", [])
         if not batch:
             break
@@ -38,4 +49,4 @@ def fetch_all_products(base_url: str) -> list[dict]:
             break
         time.sleep(DELAY_SECONDS)
 
-    return products
+    return products, currency

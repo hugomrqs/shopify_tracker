@@ -7,6 +7,7 @@ Run locally:
 
 import logging
 import os
+import time
 from datetime import date
 
 from crawler import firestore_store
@@ -16,6 +17,8 @@ from crawler.shops import SHOPS
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
 
+MARKET_DELAY_SECONDS = 2
+
 
 def main() -> None:
     project_id = os.environ.get("GOOGLE_CLOUD_PROJECT")
@@ -24,16 +27,22 @@ def main() -> None:
 
     summary = {}
     for shop in SHOPS:
-        brand, base_url = shop["brand"], shop["base_url"]
-        try:
-            products = fetch_all_products(base_url)
-            for product in products:
-                firestore_store.upsert_product(db, brand, base_url, product, run_date)
-            summary[brand] = len(products)
-            logger.info("%s: stored %d products", brand, len(products))
-        except Exception:
-            logger.exception("%s: crawl failed", brand)
-            summary[brand] = "FAILED"
+        brand = shop["brand"]
+        market_results = {}
+        for i, base_url in enumerate(shop["markets"]):
+            try:
+                products, currency = fetch_all_products(base_url)
+                for product in products:
+                    firestore_store.upsert_product(
+                        db, brand, base_url, currency, product, run_date, is_home_market=(i == 0)
+                    )
+                market_results[base_url] = f"{len(products)} products ({currency})"
+                logger.info("%s / %s: stored %d products (%s)", brand, base_url, len(products), currency)
+            except Exception:
+                logger.exception("%s / %s: crawl failed", brand, base_url)
+                market_results[base_url] = "FAILED"
+            time.sleep(MARKET_DELAY_SECONDS)
+        summary[brand] = market_results
 
     logger.info("Run %s summary: %s", run_date, summary)
 
