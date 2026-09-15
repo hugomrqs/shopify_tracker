@@ -29,12 +29,31 @@ def main() -> None:
     for shop in SHOPS:
         brand = shop["brand"]
         market_results = {}
+        # Maps handle -> home market's product id, so a secondary market
+        # (possibly a different Shopify instance with its own ids — see
+        # Isabel Marant in crawler/shops.py) still merges into the right
+        # Firestore doc instead of creating a duplicate.
+        handle_to_home_id: dict[str, int] = {}
+
         for i, base_url in enumerate(shop["markets"]):
+            is_home_market = i == 0
             try:
                 products, currency = fetch_all_products(base_url)
                 for product in products:
+                    handle = product.get("handle")
+                    if is_home_market and handle:
+                        handle_to_home_id[handle] = product["id"]
+                    doc_shopify_id = handle_to_home_id.get(handle, product.get("id"))
+
                     firestore_store.upsert_product(
-                        db, brand, base_url, currency, product, run_date, is_home_market=(i == 0)
+                        db,
+                        brand,
+                        base_url,
+                        currency,
+                        product,
+                        run_date,
+                        is_home_market=is_home_market,
+                        doc_shopify_id=doc_shopify_id,
                     )
                 market_results[base_url] = f"{len(products)} products ({currency})"
                 logger.info("%s / %s: stored %d products (%s)", brand, base_url, len(products), currency)

@@ -1,17 +1,18 @@
 """Persist Shopify products to Firestore.
 
 Data model:
-  products/{brand-slug}_{shopify_product_id}
+  products/{brand-slug}_{home_market_shopify_id}
     - brand, shopify_id, handle, vendor, product_type, tags, images, options
-      (identity fields shared by every market, since Shopify Markets reuses
-      the same product/variant ids everywhere)
-    - min_price, max_price, variants, source_url  (mirror of the "home"
-      market, i.e. the first entry in that brand's market list — kept at
-      top level for convenience/backward compatibility)
-    - markets: { <market-key>: { currency, domain, title, min_price,
-      max_price, variants, source_url, available } }
-      one entry per crawled market domain, since Shopify Markets serves
-      each domain with prices already converted to its local currency.
+      (identity fields — always taken from the *home* market; see
+      crawler/main.py's handle_to_home_id for how secondary markets, which
+      can be a wholly different Shopify instance with different ids, still
+      resolve to this same doc)
+    - min_price, max_price, variants, source_url  (mirror of the home
+      market — kept at top level for convenience/backward compatibility)
+    - markets: { <market-key>: { currency, domain, shopify_id, handle,
+      title, min_price, max_price, variants, source_url, available } }
+      one entry per crawled market, since Shopify Markets serves each one
+      with prices already converted to its local currency.
     - first_seen_at / last_seen_at
 
     products/{doc}/snapshots/{run_date}
@@ -40,7 +41,11 @@ def _slugify(value: str) -> str:
 
 
 def _market_key(base_url: str) -> str:
-    return _slugify(urlparse(base_url).netloc)
+    # Must include the path: some brands use the *same* host for every
+    # market (rouje.com, rouje.com/en-gb, rouje.com/en-ch) — keying on
+    # netloc alone collapses them all into one entry.
+    parsed = urlparse(base_url)
+    return _slugify(f"{parsed.netloc}{parsed.path}")
 
 
 def _variant_summary(variants: list[dict]) -> list[dict]:
@@ -68,8 +73,17 @@ def upsert_product(
     product: dict,
     run_date: str,
     is_home_market: bool,
+    doc_shopify_id: int | str | None = None,
 ) -> None:
-    doc_id = f"{_slugify(brand)}_{product['id']}"
+    """Upsert one product's data for one market.
+
+    `doc_shopify_id` lets the caller pin the Firestore doc id to the *home*
+    market's product id even when this market's own id differs (Isabel
+    Marant's intl storefront is a separate Shopify instance with different
+    ids for the same handle — see crawler/shops.py). Defaults to this
+    product's own id, which is correct whenever markets share ids.
+    """
+    doc_id = f"{_slugify(brand)}_{doc_shopify_id if doc_shopify_id is not None else product['id']}"
     ref = db.collection("products").document(doc_id)
     market_key = _market_key(base_url)
 
@@ -80,6 +94,8 @@ def upsert_product(
     market_entry = {
         "currency": currency,
         "domain": base_url,
+        "shopify_id": product.get("id"),
+        "handle": product.get("handle"),
         "title": product.get("title"),
         "min_price": min(prices) if prices else None,
         "max_price": max(prices) if prices else None,
@@ -88,18 +104,11 @@ def upsert_product(
         "source_url": f"{base_url}/products/{product.get('handle')}",
     }
 
+    # Only the home market is treated as the source of truth for identity
+    # fields — a secondary market (different locale, possibly a different
+    # Shopify instance entirely) must never overwrite them.
     doc_data = {
         "brand": brand,
-        "shopify_id": product.get("id"),
-        "handle": product.get("handle"),
-        "vendor": product.get("vendor"),
-        "product_type": product.get("product_type"),
-        "tags": product.get("tags", []),
-        "published_at": product.get("published_at"),
-        "created_at_shopify": product.get("created_at"),
-        "updated_at_shopify": product.get("updated_at"),
-        "images": [img.get("src") for img in product.get("images", [])],
-        "options": product.get("options", []),
         "markets": {market_key: market_entry},
         "last_seen_at": now,
         "last_crawl_date": run_date,
@@ -108,6 +117,16 @@ def upsert_product(
     if is_home_market:
         doc_data.update(
             {
+                "shopify_id": product.get("id"),
+                "handle": product.get("handle"),
+                "vendor": product.get("vendor"),
+                "product_type": product.get("product_type"),
+                "tags": product.get("tags", []),
+                "published_at": product.get("published_at"),
+                "created_at_shopify": product.get("created_at"),
+                "updated_at_shopify": product.get("updated_at"),
+                "images": [img.get("src") for img in product.get("images", [])],
+                "options": product.get("options", []),
                 "title": market_entry["title"],
                 "min_price": market_entry["min_price"],
                 "max_price": market_entry["max_price"],
