@@ -1,0 +1,25 @@
+{
+  "Jeans": {"fn4": "JEA"},
+  "Bijoux": {"fn4": "BIJ"},
+  "Robes": {"fn4": "ROB"},
+  "Chaussures": {"fn4": "CHA"},
+  "Jupes": {"fn4": "JUP"},
+  "Sacs & paniers": {"fn4": "SEM"},
+  "Accessoires": {"fn4": "AUT"},
+  "Petite maroquinerie": {"fn4": "SEM", "fn5": "PMA"},
+  "Cartes cadeaux": {"fn4": "KDO"},
+
+  "Teint": {"out_of_scope": true},
+  "Yeux": {"out_of_scope": true},
+  "Lèvres": {"out_of_scope": true},
+  "Soin": {"out_of_scope": true},
+  "Le Soin cheveux": {"out_of_scope": true},
+  "Le Soin visage": {"out_of_scope": true},
+  "Les rouges à lèvres": {"out_of_scope": true},
+  "Les palettes lèvres": {"out_of_scope": true},
+  "Les baumes à lèvres": {"out_of_scope": true},
+  "Les velours": {"out_of_scope": true},
+  "Les coffrets maquillage": {"out_of_scope": true},
+  "Beauté": {"out_of_scope": true},
+  "Coffrets": {"out_of_scope": true}
+}

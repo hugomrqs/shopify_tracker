@@ -10,6 +10,7 @@ import os
 import time
 from datetime import date
 
+import normalize_categories
 from crawler import firestore_store
 from crawler.fetch import fetch_all_products
 from crawler.shops import SHOPS
@@ -64,6 +65,9 @@ def main() -> None:
         summary[brand] = market_results
 
     logger.info("Run %s summary: %s", run_date, summary)
+
+    logger.info("Normalizing categories into products_normalized...")
+    normalize_categories.run(db)
 
 
 if __name__ == "__main__":
