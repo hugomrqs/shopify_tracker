@@ -37,8 +37,11 @@ Shopify's public /products.json, which exposes a single flat
 a one-level "breadcrumb" for the same dictionary-lookup approach.
 
 Usage:
-    python3 normalize_categories.py            # apply mappings, report
-    python3 normalize_categories.py --dry-run   # report only, no writes
+    python3 normalize_categories.py              # full rescan, apply + report
+    python3 normalize_categories.py --dry-run     # report only, no writes
+    python3 normalize_categories.py --new-only    # only resolve products not yet
+                                                    # in products_normalized (what
+                                                    # the automated daily job uses)
 """
 import argparse
 import json
@@ -122,15 +125,33 @@ def resolve(doc: dict, mapping: dict, fn4: dict, fn5: dict) -> tuple[dict, str]:
     return {"category": None, "category_mapping_status": "unmapped"}, "unmapped"
 
 
-def run(db, dry_run: bool = False) -> None:
+def run(db, dry_run: bool = False, new_only: bool = False) -> None:
+    """Resolve categories for products in the `products` (bronze) collection
+    and publish qualifying ones to `products_normalized` (silver).
+
+    `new_only=True` only resolves products that have never been written to
+    `products_normalized` before (i.e. new since the last run) — cheap,
+    used by the automated daily job in crawler/main.py so an unchanged
+    catalog doesn't cost a Firestore write per product every day. Products
+    already in `products_normalized`, or already known `unmapped`/
+    `out_of_scope` from a prior run, are left untouched either way.
+
+    `new_only=False` (the default for manual CLI runs) re-resolves every
+    product from scratch — needed after editing a taxonomy dictionary or
+    the FN4/FN5 codebook, so corrections retroactively reclassify products
+    that were previously unmapped or mis-mapped.
+    """
     fn4, fn5 = load_fn4(), load_fn5()
     mapping_cache: dict[str, dict] = {}
 
     status_counts: dict[str, Counter] = {}
     unmapped_samples: dict[str, Counter] = {}
+    skipped_counts: dict[str, int] = {}
 
     raw_ref = db.collection("products")
     normalized_ref = db.collection("products_normalized")
+
+    existing_normalized_ids = {doc.id for doc in normalized_ref.stream()}
 
     for doc_snap in raw_ref.stream():
         doc = doc_snap.to_dict()
@@ -139,8 +160,14 @@ def run(db, dry_run: bool = False) -> None:
             mapping_cache[brand] = load_mapping(brand)
             status_counts[brand] = Counter()
             unmapped_samples[brand] = Counter()
-        mapping = mapping_cache[brand]
+            skipped_counts[brand] = 0
 
+        already_normalized = doc_snap.id in existing_normalized_ids
+        if new_only and already_normalized:
+            skipped_counts[brand] += 1
+            continue
+
+        mapping = mapping_cache[brand]
         update, status = resolve(doc, mapping, fn4, fn5)
         status_counts[brand][status] += 1
         if status == "unmapped":
@@ -152,16 +179,22 @@ def run(db, dry_run: bool = False) -> None:
         if status in INCLUDED_STATUSES:
             normalized_doc = {**doc, **update}
             normalized_ref.document(doc_snap.id).set(normalized_doc)
-        else:
+        elif already_normalized:
+            # Was previously included (e.g. product_type changed since the
+            # last full rescan) and no longer qualifies — clean it up. Skip
+            # the delete call entirely when it was never there, so a full
+            # rescan doesn't cost a wasted delete op per unmapped product.
             normalized_ref.document(doc_snap.id).delete()
 
-    print(f"{'[DRY RUN] ' if dry_run else ''}Category normalization summary:")
+    print(f"{'[DRY RUN] ' if dry_run else ''}Category normalization summary{' (new products only)' if new_only else ''}:")
     for brand in sorted(status_counts):
         counts = status_counts[brand]
         total = sum(counts.values())
         breakdown = ", ".join(f"{status}: {n}" for status, n in counts.most_common())
         has_dictionary = "yes" if mapping_cache[brand] else "no"
-        print(f"  {brand:<20} {total} products — {breakdown} (dictionary: {has_dictionary})")
+        skipped = skipped_counts[brand]
+        skipped_note = f", {skipped} already normalized (skipped)" if skipped else ""
+        print(f"  {brand:<20} {total} products — {breakdown} (dictionary: {has_dictionary}){skipped_note}")
         if counts["unmapped"]:
             print(f"    Unmapped product_types (add to taxonomy/mappings/{_slugify(brand)}.json or extend name matching):")
             for key, count in unmapped_samples[brand].most_common(15):
@@ -171,11 +204,16 @@ def run(db, dry_run: bool = False) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--dry-run", action="store_true", help="report only, don't write to Firestore")
+    parser.add_argument(
+        "--new-only",
+        action="store_true",
+        help="only resolve products not yet in products_normalized (skip a full rescan)",
+    )
     args = parser.parse_args()
 
     project_id = os.environ.get("GOOGLE_CLOUD_PROJECT")
     db = firestore_store.get_client(project_id)
-    run(db, dry_run=args.dry_run)
+    run(db, dry_run=args.dry_run, new_only=args.new_only)
 
 
 if __name__ == "__main__":

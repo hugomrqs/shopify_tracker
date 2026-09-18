@@ -105,9 +105,19 @@ rapport de couverture par marque), puisque `products` (bronze) garde les
 champs bruts (`product_type`, `title`) comme source de vérité.
 
 ```bash
-python3 normalize_categories.py --dry-run   # rapport de couverture, aucune écriture
-python3 normalize_categories.py             # applique et publie products_normalized
+python3 normalize_categories.py --dry-run    # rapport de couverture, aucune écriture
+python3 normalize_categories.py              # rescan complet, applique et publie products_normalized
+python3 normalize_categories.py --new-only   # ne traite que les produits jamais encore poussés
 ```
+
+Le job quotidien (`crawler/main.py`) appelle `normalize_categories.run(db,
+new_only=True)` après chaque crawl : seuls les produits pas encore présents
+dans `products_normalized` sont résolus, donc pas d'écriture Firestore
+inutile sur un catalogue qui ne bouge presque pas d'un jour à l'autre. Après
+avoir ajouté ou corrigé un dictionnaire de marque (ou le référentiel
+FN4/FN5), relancer un **rescan complet** à la main (sans `--new-only`) pour
+reclasser rétroactivement les produits déjà en base (notamment ceux restés
+`unmapped`).
 
 **Pour ajouter/étendre un dictionnaire de marque** : déposer ou éditer
 `taxonomy/mappings/<brand-slug>.json` (slug = marque en minuscules,

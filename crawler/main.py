@@ -66,8 +66,8 @@ def main() -> None:
 
     logger.info("Run %s summary: %s", run_date, summary)
 
-    logger.info("Normalizing categories into products_normalized...")
-    normalize_categories.run(db)
+    logger.info("Normalizing new products into products_normalized...")
+    normalize_categories.run(db, new_only=True)
 
 
 if __name__ == "__main__":
