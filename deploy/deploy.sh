@@ -12,6 +12,9 @@
 
 set -euo pipefail
 
+# Build context = repo root, whatever the caller's working directory is.
+ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+
 PROJECT_ID="${PROJECT_ID:?Set PROJECT_ID, e.g. soeur-shopify-tracker}"
 BILLING_ACCOUNT_ID="${BILLING_ACCOUNT_ID:?Set BILLING_ACCOUNT_ID (run: gcloud billing accounts list)}"
 REGION="${REGION:-europe-west1}"
@@ -48,7 +51,7 @@ gcloud artifacts repositories create "$REPO_NAME" \
 
 echo "== Build & push image =="
 IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO_NAME}/${JOB_NAME}:latest"
-gcloud builds submit --tag "$IMAGE" ..
+gcloud builds submit --tag "$IMAGE" "$ROOT_DIR"
 
 echo "== Runtime service account (Firestore write access) =="
 gcloud iam service-accounts create "$RUNTIME_SA" --display-name="Shopify tracker runtime" \
