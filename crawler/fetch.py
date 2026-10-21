@@ -2,6 +2,7 @@
 
 import logging
 import time
+from urllib.parse import urlsplit, urlunsplit
 
 import requests
 
@@ -12,6 +13,15 @@ PAGE_LIMIT = 250
 MAX_PAGES = 200
 DELAY_SECONDS = 0.5
 TIMEOUT_SECONDS = 30
+
+
+def _products_url(base_url: str) -> str:
+    # `/products.json` must go on the path, before any `?country=XX` query:
+    # appending it to the raw string turned the URL into `/?country=GB/products.json`,
+    # which served the homepage HTML instead of JSON.
+    parts = urlsplit(base_url)
+    path = parts.path.rstrip("/") + "/products.json"
+    return urlunsplit((parts.scheme, parts.netloc, path, parts.query, ""))
 
 
 def fetch_all_products(base_url: str) -> tuple[list[dict], str | None]:
@@ -30,7 +40,7 @@ def fetch_all_products(base_url: str) -> tuple[list[dict], str | None]:
 
     for page in range(1, MAX_PAGES + 1):
         resp = session.get(
-            f"{base_url}/products.json",
+            _products_url(base_url),
             params={"page": page, "limit": PAGE_LIMIT},
             timeout=TIMEOUT_SECONDS,
         )

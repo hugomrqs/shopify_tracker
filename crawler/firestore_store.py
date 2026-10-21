@@ -41,11 +41,13 @@ def _slugify(value: str) -> str:
 
 
 def _market_key(base_url: str) -> str:
-    # Must include the path: some brands use the *same* host for every
-    # market (rouje.com, rouje.com/en-gb, rouje.com/en-ch) — keying on
-    # netloc alone collapses them all into one entry.
+    # Must include the path and the query: some brands use the *same* host
+    # for every market (rouje.com, rouje.com/en-gb, rouje.com/en-ch, or
+    # staud.clothing/?country=GB) — keying on netloc alone collapses them
+    # all into one entry.
     parsed = urlparse(base_url)
-    return _slugify(f"{parsed.netloc}{parsed.path}")
+    query = f"?{parsed.query}" if parsed.query else ""
+    return _slugify(f"{parsed.netloc}{parsed.path}{query}")
 
 
 def _variant_summary(variants: list[dict]) -> list[dict]:

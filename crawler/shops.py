@@ -215,4 +215,29 @@ SHOPS = [
             "https://byfar.com/?country=CH",
         ],
     },
+    {
+        "brand": "Lemaire",
+        "markets": [
+            "https://www.lemaire.fr",
+            "https://www.lemaire.fr/?country=US",
+            "https://www.lemaire.fr/?country=GB",
+            "https://www.lemaire.fr/?country=CH",
+        ],
+    },
+    {
+        "brand": "Margaux Lonnberg",
+        "markets": [
+            "https://margauxlonnberg.com",
+            "https://margauxlonnberg.com/en-us",
+            "https://margauxlonnberg.com/en-gb",
+        ],
+    },
+    {
+        "brand": "Laurence Bras",
+        "markets": [
+            "https://laurencebras.com",
+            "https://laurencebras.com/?country=GB",
+            "https://laurencebras.com/?country=CH",
+        ],
+    },
 ]
