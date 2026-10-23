@@ -7,12 +7,18 @@ Voir [CRITIQUE.md](CRITIQUE.md) pour le détail de chaque point (numéros entre 
 - [x] Corriger les marchés `?country=` : URL du `products.json` sur le chemin, pas en fin de query (2.8)
 - [x] Inclure la query dans la clé de marché pour éviter l'écrasement entre marchés d'un même domaine (2.8)
 - [x] Ajouter Lemaire (FR, US, GB, CH), Margaux Lonnberg (FR, US, GB), Laurence Bras (FR, GB, CH) dans `crawler/shops.py`, endpoints vérifiés en direct
+- [x] Corriger le `Dockerfile` : copier `normalize_categories.py` et `taxonomy/` (1.1), commit `c6e7082`
+- [x] Corriger `deploy/deploy.sh` : contexte de build relatif au script, pas à `..` (1.2), commit `c6e7082`
+- [x] Vérifier l'état du job déployé : les exécutions quotidiennes sont `COMPLETE 1/1` et les logs montrent des crawls réussis (l'image déployée est plus ancienne que la branche)
+
+## En attente (branche `feat/add-brands-fix-country-markets`)
+
+- [ ] Pousser la branche : `gh auth login` puis `git push -u origin feat/add-brands-fix-country-markets`
+- [ ] Reconstruire l'image (`gcloud builds submit`), puis lancer une exécution et contrôler les logs
 
 ## P0 — Bloquant : le job ne tourne pas
 
-- [ ] Corriger le `Dockerfile` : copier `normalize_categories.py` et `taxonomy/` (1.1)
-- [ ] Corriger `deploy/deploy.sh` : contexte de build relatif au script, pas à `..` (1.2)
-- [ ] Vérifier l'état réel du job déployé : `gcloud run jobs executions list --job=shopify-tracker --region=europe-west1` (si le dernier run a planté à l'import, rien n'a été collecté depuis)
+- [ ] Faire échouer le job si un marché échoue, et ajouter une alerte (1.3)
 - [ ] Faire échouer le job si un marché échoue, et ajouter une alerte (1.3)
 
 ## P1 — Intégrité des données

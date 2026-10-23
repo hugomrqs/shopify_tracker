@@ -1,0 +1,25 @@
+{
+  "displayName": "shopify-tracker: marché en échec",
+  "documentation": {
+    "mimeType": "text/markdown",
+    "content": "Au moins un marché n'a pas pu être crawlé lors du run quotidien shopify-tracker. Le détail (marque, marché, erreur) est dans le log ci-joint, dans la ligne « market(s) failed »."
+  },
+  "combiner": "OR",
+  "conditions": [
+    {
+      "displayName": "Log : market(s) failed",
+      "conditionMatchedLog": {
+        "filter": "resource.type=\"cloud_run_job\" AND resource.labels.job_name=\"__JOB_NAME__\" AND textPayload:\"market(s) failed\""
+      }
+    }
+  ],
+  "alertStrategy": {
+    "notificationRateLimit": {
+      "period": "300s"
+    },
+    "autoClose": "86400s"
+  },
+  "notificationChannels": [
+    "__CHANNEL__"
+  ]
+}

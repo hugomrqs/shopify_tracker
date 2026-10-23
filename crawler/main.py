@@ -7,6 +7,7 @@ Run locally:
 
 import logging
 import os
+import sys
 import time
 from datetime import date
 
@@ -27,6 +28,7 @@ def main() -> None:
     run_date = date.today().isoformat()
 
     summary = {}
+    failures = []  # (brand, base_url, error) for every market that did not crawl
     for shop in SHOPS:
         brand = shop["brand"]
         market_results = {}
@@ -58,9 +60,10 @@ def main() -> None:
                     )
                 market_results[base_url] = f"{len(products)} products ({currency})"
                 logger.info("%s / %s: stored %d products (%s)", brand, base_url, len(products), currency)
-            except Exception:
+            except Exception as exc:
                 logger.exception("%s / %s: crawl failed", brand, base_url)
                 market_results[base_url] = "FAILED"
+                failures.append((brand, base_url, f"{type(exc).__name__}: {exc}"))
             time.sleep(MARKET_DELAY_SECONDS)
         summary[brand] = market_results
 
@@ -68,6 +71,14 @@ def main() -> None:
 
     logger.info("Normalizing new products into products_normalized...")
     normalize_categories.run(db, new_only=True)
+
+    # Normalization still runs so the markets that did crawl are published.
+    # Exiting non-zero marks the Cloud Run execution as failed, and the log
+    # line below is what the email alert matches on (see deploy/alerting.sh).
+    if failures:
+        details = "; ".join(f"{brand} / {url} -> {error}" for brand, url, error in failures)
+        logger.error("Run %s: %d market(s) failed: %s", run_date, len(failures), details)
+        sys.exit(1)
 
 
 if __name__ == "__main__":
