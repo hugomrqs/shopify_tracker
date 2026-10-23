@@ -13,8 +13,9 @@ Voir [CRITIQUE.md](CRITIQUE.md) pour le détail de chaque point (numéros entre 
 
 ## En attente (branche `feat/add-brands-fix-country-markets`)
 
+- [x] Reconstruire l'image (`gcloud builds submit`) : build `SUCCESS` le 2026-10-23
+- [ ] Lancer une exécution manuelle et contrôler les logs (`run jobs execute`, puis `Select-String "market(s) failed"`)
 - [ ] Pousser la branche : `gh auth login` puis `git push -u origin feat/add-brands-fix-country-markets`
-- [ ] Reconstruire l'image (`gcloud builds submit`), puis lancer une exécution et contrôler les logs
 
 ## Architecture cible : trois couches, une règle
 
@@ -33,8 +34,8 @@ Règle : **le front ne lit que la couche `mart`**. Aucune table d'implémentatio
 
 ## P0 — Bloquant : le job ne tourne pas
 
-- [ ] Faire échouer le job si un marché échoue, et ajouter une alerte (1.3)
-- [ ] Faire échouer le job si un marché échoue, et ajouter une alerte (1.3)
+- [x] Faire échouer le job si un marché échoue (1.3), commit `7b8a019`
+- [x] Alerte mail : chaîne email et politique « market(s) failed » créées dans `soeur-shopify-tracker` (vérifiées par lecture)
 
 ## P1 — Intégrité des données
 
