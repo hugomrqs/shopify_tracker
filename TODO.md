@@ -16,6 +16,21 @@ Voir [CRITIQUE.md](CRITIQUE.md) pour le détail de chaque point (numéros entre 
 - [ ] Pousser la branche : `gh auth login` puis `git push -u origin feat/add-brands-fix-country-markets`
 - [ ] Reconstruire l'image (`gcloud builds submit`), puis lancer une exécution et contrôler les logs
 
+## Architecture cible : trois couches, une règle
+
+Règle : **le front ne lit que la couche `mart`**. Aucune table d'implémentation (`products`, `products_normalized`) n'est exposée.
+
+1. **Ingestion** (adaptateurs, `quiet-luxury-pricing/src/qlp/adapters/`) : réponse brute → GCS, puis une ligne par couleur × marché → BigQuery `raw`, ajout seul. Aucune transformation.
+2. **Transformation** (Dataform, projet `pyramidale`) : `raw → core` (EUR, TTC, statut `active` à la date T, catégorie), puis `core → mart` (pyramide par date × catégorie × marque × marché, avec couverture).
+3. **Service** : Looker Studio sur `mart` pour la phase interne, application plus tard sur les mêmes tables.
+
+- [ ] Documenter cette séparation dans `CRITIQUE.md` (section 2 et 5)
+- [ ] Déplacer la logique Shopify de `shopify_tracker/crawler/fetch.py` et `shops.py` vers un adaptateur dans `quiet-luxury-pricing`, `brands.yaml` comme seule source de vérité des marchés
+- [ ] Sortir la normalisation de `main.py` : `normalize_categories.py` devient une étape Dataform, sa logique de mapping pure reste en Python pour les tests
+- [ ] Ne plus écrire dans Firestore une fois la couche BigQuery en place ; garder `shopify_tracker` comme référence jusqu'à la fin de la phase de comparaison
+- [ ] Taxonomie FN3-FN6 : une seule copie, dans `quiet-luxury-pricing/taxonomy/`
+- [ ] `requirements-dev.txt` (pytest, ruff) : les tests n'existent pas encore dans ce repo
+
 ## P0 — Bloquant : le job ne tourne pas
 
 - [ ] Faire échouer le job si un marché échoue, et ajouter une alerte (1.3)
