@@ -30,6 +30,23 @@ Voir [CRITIQUE.md](CRITIQUE.md) pour le détail de chaque point (numéros entre 
 - [ ] Mesurer la taille max d'un document Firestore sur les produits les plus lourds (2.5)
 - [ ] Chiffrer le nombre d'écritures Firestore par jour sur le catalogue réel (2.6)
 
+## Statut produit publié / actif (à valider avant de coder)
+
+Constat : `products.json` ne renvoie que les produits publiés sur la boutique. Un produit dépublié **disparaît du feed**, il n'y a aucun champ « dépublié ». Aujourd'hui on ne peut donc pas savoir s'il est en ligne, ni depuis quand. Le statut doit être déduit des runs successifs.
+
+- [ ] Statut par marché (`markets.<clé>.status`) :
+  - `active` : présent dans le feed et au moins une variante `available`
+  - `out_of_stock` : présent dans le feed, aucune variante disponible
+  - `unpublished` : absent du feed à partir d'un run complet
+- [ ] Dates : `activated_at` (premier run où le produit est `active`, ou `published_at` Shopify si fiable à vérifier sur quelques produits), `unpublished_at` (premier run d'absence), `status_since` (date du dernier changement de statut)
+- [ ] Réactivation : si le produit réapparaît, repasser en `active` avec un nouveau `activated_at` ; garder l'historique dans les `snapshots`
+- [ ] Ne marquer `unpublished` qu'après un run **complet** du marché (pagination terminée, aucune erreur). Un marché en échec ou une pagination tronquée donnerait de faux retraits. Lié à l'alerte (1.3).
+- [ ] Filtre : exposer `status` dans `products_normalized` pour filtrer côté dashboard (par défaut : `active` seulement)
+- [x] Décision : la pyramide se calcule sur ce qui est **publié à l'instant T et en stock**, soit le statut `active` à la date T. Les `out_of_stock` et `unpublished` sont exclus.
+  - Implication : la pyramide par date se reconstruit depuis les `snapshots` (un snapshot présent pour une date = produit publié ce jour-là), sans recrawl.
+  - À préciser : « en stock » = au moins une variante `available` (niveau produit). Un filtre par taille est possible plus tard si besoin.
+- [ ] Limite à documenter : Shopify ne dit pas pourquoi un produit a disparu (retrait, brouillon, mot de passe, canal désactivé). On observe seulement l'absence.
+
 ## P2 — Qualité de la classification
 
 - [ ] Écrire des tests de non-régression sur `category_matching` et `resolve()` (3.4)
